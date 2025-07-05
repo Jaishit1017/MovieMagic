@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Booking Confirmation</title>
+</head>
+<body style="background-color:black; color:white; text-align:center; font-family:sans-serif; padding:60px;">
+  <h1 style="color:#39ff14;">🎉 Booking Confirmed!</h1>
+  {% if booking %}
+    <p><strong>Movie:</strong> {{ booking.movie }}</p>
+    <p><strong>Location:</strong> {{ booking.location }}</p>
+    <p><strong>Date:</strong> {{ booking.date }}</p>
+    <p><strong>Time:</strong> {{ booking.time }}</p>
+    <p><strong>Seats:</strong> {{ booking.seats }}</p>
+  {% else %}
+    <p>No booking information available.</p>
+  {% endif %}
+  <br>
+  <a href="{{ url_for('home') }}" style="color:#39ff14;">Return to Home</a>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Select Seats | MovieMagic</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <style>
+    :root {
+      --neon-green: #39ff14;
+      --vip-green: #00ff95;
+      --disabled: #444;
+      --dark-bg: #0b0b0b;
+      --card-bg: #111;
+      --text-color: #ccffcc;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--dark-bg);
+      color: var(--text-color);
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .screen {
+      background: var(--neon-green);
+      color: #000;
+      margin: 0 auto 30px;
+      width: 300px;
+      padding: 10px;
+      border-radius: 4px;
+      font-weight: bold;
+      box-shadow: 0 0 10px var(--neon-green);
+    }
+
+    .seats-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .seat-row {
+      display: grid;
+      grid-template-columns: repeat(12, 36px);
+      gap: 10px;
+    }
+
+    .seat {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      border: 1px solid #555;
+      background: #1a1a1a;
+      font-size: 0.75rem;
+      color: var(--text-color);
+      transition: 0.3s;
+    }
+
+    .seat.vip {
+      background: var(--vip-green);
+      color: #000;
+      font-weight: bold;
+    }
+
+    .seat:hover:not(.disabled):not(.selected) {
+      background: var(--neon-green);
+      color: #000;
+      box-shadow: 0 0 10px var(--neon-green);
+    }
+
+    .seat.selected {
+      background: var(--neon-green) !important;
+      color: #000;
+      box-shadow: 0 0 10px var(--neon-green);
+    }
+
+    .seat.disabled {
+      background: var(--disabled);
+      color: #888;
+      cursor: not-allowed;
+    }
+
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+
+    .legend-box {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .regular-box {
+      background: #1a1a1a;
+      border: 1px solid var(--neon-green);
+    }
+
+    .vip-box {
+      background: var(--vip-green);
+    }
+
+    .selected-box {
+      background: var(--neon-green);
+    }
+
+    .disabled-box {
+      background: var(--disabled);
+    }
+
+    .booking-summary {
+      margin-top: 30px;
+      font-size: 1rem;
+    }
+
+    .confirm-btn {
+      margin-top: 20px;
+      padding: 12px 28px;
+      background: var(--neon-green);
+      border: none;
+      border-radius: 30px;
+      font-size: 1rem;
+      font-weight: bold;
+      color: #000;
+      cursor: pointer;
+      transition: 0.3s;
+      box-shadow: 0 0 10px var(--neon-green);
+    }
+
+    .confirm-btn:hover {
+      background: #000;
+      color: var(--neon-green);
+      border: 1px solid var(--neon-green);
+    }
+  </style>
+</head>
+<body>
+  <h1>Select Your Seats</h1>
+
+  <div class="legend">
+    <span><div class="legend-box regular-box"></div> Regular (₹150)</span>
+    <span><div class="legend-box vip-box"></div> VIP (₹250)</span>
+    <span><div class="legend-box selected-box"></div> Selected</span>
+    <span><div class="legend-box disabled-box"></div> Booked</span>
+  </div>
+
+  <div class="screen">SCREEN</div>
+
+  <form action="{{ url_for('seatmap') }}" method="POST" onsubmit="return validateSeats()">
+    <div class="seats-container">
+      {% for row in ['D','C','B','A'] %}
+      <div class="seat-row">
+        {% for num in range(1,13) %}
+        {% set seat_id = row ~ num %}
+        {% set is_vip = row in ['A','B'] %}
+        {% set is_disabled = seat_id in ['C2','D5','A3','B7'] %}
+        <div class="seat {% if is_vip %}vip{% endif %} {% if is_disabled %}disabled{% endif %}"
+             data-seat="{{ seat_id }}" onclick="toggleSeat(this)">
+          {{ seat_id }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="booking-summary">
+      <p>Selected Seats: <span id="selected-seats">None</span></p>
+      <p>Total Price: ₹<span id="total-price">0</span></p>
+    </div>
+
+    <input type="hidden" name="seat" id="seat-input" required>
+    <input type="hidden" name="date" value="{{ session['pending_booking']['date'] }}">
+    <input type="hidden" name="time" value="{{ session['pending_booking']['time'] }}">
+    <input type="hidden" name="movie" value="{{ session['pending_booking']['movie'] }}">
+
+    <button class="confirm-btn" type="submit">Confirm and Pay</button>
+  </form>
+
+  <script>
+    const selected = new Set();
+    const vipRows = ['A', 'B'];
+    const regularPrice = 150;
+    const vipPrice = 250;
+
+    function toggleSeat(el) {
+      if (el.classList.contains('disabled')) return;
+      const seat = el.dataset.seat;
+      el.classList.toggle('selected');
+      if (selected.has(seat)) selected.delete(seat);
+      else selected.add(seat);
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const seatList = Array.from(selected);
+      let total = 0;
+      seatList.forEach(s => total += vipRows.includes(s.charAt(0)) ? vipPrice : regularPrice);
+      document.getElementById('selected-seats').innerText = seatList.join(', ') || 'None';
+      document.getElementById('total-price').innerText = total;
+      document.getElementById('seat-input').value = seatList.join(',');
+    }
+
+    function validateSeats() {
+      updateSummary();
+      if (selected.size === 0) {
+        alert("Please select at least one seat.");
+        return false;
+      }
+      return true;
+    }
+  </script>
+</body>
+</html>
